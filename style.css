@@ -18,14 +18,13 @@
 
 body {
     font-family: 'Outfit', sans-serif;
-    background: var(--bg-dark); /* Fallback */
+    background: var(--bg-dark);
     background-color: transparent;
     color: var(--text);
-    height: 100vh;
-    height: 100svh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100svh;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Map Background */
@@ -261,11 +260,9 @@ h1 {
 
 /* Dashboard & Cards */
 .dashboard {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow-y: auto;
 }
 
 .glass {

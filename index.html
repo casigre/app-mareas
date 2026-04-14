@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mareas & Oleaje</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#002b4e">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="map-container">
+        <div id="map"></div>
+        <div class="map-overlay"></div>
+    </div>
+
+    <main class="app-container">
+        <header>
+            <div class="location-scroller">
+                <button class="nav-btn active" data-id="porto" onclick="setLocation('porto')">Porto do Son</button>
+                <button class="nav-btn" data-id="ribeira" onclick="setLocation('ribeira')">Ribeira</button>
+                <button class="nav-btn" data-id="aguino" onclick="setLocation('aguino')">Aguiño</button>
+            </div>
+            <div id="date-selector" class="date-scroller"></div>
+            <h1 id="location-name">Porto do Son</h1>
+            <p id="current-time">Cargando datos...</p>
+        </header>
+
+        <section class="dashboard">
+            <!-- Mareas Card -->
+            <div class="card glass" id="tides-card">
+                <div class="card-header">
+                    <i class="fa-solid fa-water"></i>
+                    <h2>Próximas Mareas</h2>
+                </div>
+                <div id="tide-graph-container">
+                    <svg id="tide-graph" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
+                </div>
+                <div class="tide-events" id="tide-list">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <!-- Oleaje -->
+                <div class="card glass stat-card">
+                    <i class="fa-solid fa-house-tsunami stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Oleaje</span>
+                        <span class="stat-value" id="wave-height">-- m</span>
+                        <span class="stat-sub" id="wave-period">-- s</span>
+                    </div>
+                </div>
+
+                <!-- Viento -->
+                <div class="card glass stat-card">
+                    <i class="fa-solid fa-wind stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Viento</span>
+                        <span class="stat-value" id="wind-speed">-- km/h</span>
+                        <span class="stat-sub" id="wind-dir">--</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <button class="refresh-btn" onclick="refreshData()">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+        </footer>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="main.js"></script>
+    <script>
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .catch(err => console.log('Service Worker no disponible en este entorno.'));
+            });
+        }
+    </script>
+</body>
+</html>

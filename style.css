@@ -1,0 +1,326 @@
+:root {
+    --bg-dark: #020b16;
+    --accent: #00d2ff;
+    --accent-dark: #0088ff;
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.6);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text);
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Map Background */
+#map-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    filter: brightness(0.4) saturate(0.8) blur(4px);
+    transition: filter 0.5s ease;
+}
+
+.map-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, transparent 0%, rgba(2, 11, 22, 0.5) 100%);
+    pointer-events: none;
+}
+
+/* App Container */
+.app-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+    z-index: 10;
+}
+
+header {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.location-scroller, .date-scroller {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    scrollbar-width: none;
+}
+
+.location-scroller::-webkit-scrollbar, .date-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.date-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.date-btn .d-day { font-weight: 700; font-size: 0.9rem; }
+.date-btn .d-num { font-size: 0.7rem; opacity: 0.8; }
+
+.date-btn.active {
+    background: var(--accent-dark);
+    border-color: var(--accent);
+    color: white;
+}
+
+.nav-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.nav-btn.active {
+    background: var(--accent);
+    color: var(--bg-dark);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+#current-time {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+/* Dashboard & Cards */
+.dashboard {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+}
+
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: var(--card-shadow);
+}
+
+.card {
+    padding: 20px;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.card-header i {
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+
+.card-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+}
+
+/* Tides List */
+#tide-graph-container {
+    height: 80px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    position: relative;
+}
+
+#tide-graph {
+    width: 100%;
+    height: 100%;
+    stroke: var(--accent);
+    stroke-width: 3;
+    fill: rgba(0, 210, 255, 0.1);
+}
+
+.tide-events {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tide-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    transition: transform 0.2s ease;
+}
+
+.tide-item:hover {
+    transform: scale(1.02);
+}
+
+.tide-type {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.tide-type.high { color: #00ffaa; }
+.tide-type.low { color: #ff6b6b; }
+
+.tide-time {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.tide-height {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 16px;
+}
+
+.stat-icon {
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+/* Footer */
+footer {
+    padding-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.refresh-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.refresh-btn:active {
+    scale: 0.95;
+    background: var(--accent);
+    color: var(--bg-dark);
+}
+
+/* Loading */
+.loading-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid var(--accent);
+    border-radius: 50%;
+    margin: 20px auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

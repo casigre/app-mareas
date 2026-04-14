@@ -108,8 +108,10 @@ function toggleLocationsModal(e) {
     const isVisible = modal.style.display === 'flex';
     modal.style.display = isVisible ? 'none' : 'flex';
     if (!isVisible) {
-        document.getElementById('location-search').value = '';
-        document.getElementById('search-results').style.display = 'none';
+        const searchInput = document.getElementById('location-search');
+        if (searchInput) searchInput.value = '';
+        const searchResults = document.getElementById('search-results');
+        if (searchResults) searchResults.style.display = 'none';
     }
 }
 
@@ -134,9 +136,11 @@ function renderLocationsList() {
 
 function debounceSearch() {
     clearTimeout(searchTimeout);
-    const query = document.getElementById('location-search').value;
+    const queryEl = document.getElementById('location-search');
+    const query = queryEl ? queryEl.value : '';
     if (query.length < 3) {
-        document.getElementById('search-results').style.display = 'none';
+        const results = document.getElementById('search-results');
+        if (results) results.style.display = 'none';
         return;
     }
     searchTimeout = setTimeout(() => searchLocations(query), 500);
@@ -144,6 +148,7 @@ function debounceSearch() {
 
 async function searchLocations(query) {
     const resultsDiv = document.getElementById('search-results');
+    if (!resultsDiv) return;
     resultsDiv.innerHTML = '<div class="search-result-item">Buscando...</div>';
     resultsDiv.style.display = 'block';
     try {
@@ -189,19 +194,24 @@ async function setLocation(id) {
     currentLocId = id;
     localStorage.setItem('mareas_last_loc', id);
     const loc = myLocations.find(l => l.id === id);
-    document.getElementById('location-name').innerText = loc.name;
-    map.flyTo([loc.lat, loc.lon], 13, { duration: 1.5 });
-    marker.setLatLng([loc.lat, loc.lon]);
-    renderLocationsList();
-    refreshData();
-    if (document.getElementById('locations-modal').style.display === 'flex') toggleLocationsModal();
+    if (loc) {
+        const locNameEl = document.getElementById('location-name');
+        if (locNameEl) locNameEl.innerText = loc.name;
+        map.flyTo([loc.lat, loc.lon], 13, { duration: 1.5 });
+        marker.setLatLng([loc.lat, loc.lon]);
+        renderLocationsList();
+        refreshData();
+    }
+    const modal = document.getElementById('locations-modal');
+    if (modal && modal.style.display === 'flex') toggleLocationsModal();
 }
 
 async function refreshData() {
     const loc = myLocations.find(l => l.id === currentLocId);
+    if (!loc) return;
     showLoading();
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wave_height,wave_period&minutely_15=sea_level_height_msl&timezone=auto&forecast_days=7`;
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&Daily=sunrise,sunset&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         marineData = mRes; weatherData = wRes;
@@ -220,17 +230,21 @@ function updateUI() {
     const wIdx = weatherData.hourly.time.indexOf(targetTimeStr);
     const windIdx = wIdx !== -1 ? wIdx : 0;
 
-    document.getElementById('wave-height').innerText = marineData.hourly.wave_height[idx] != null ? `${marineData.hourly.wave_height[idx].toFixed(1)} m` : '--';
-    document.getElementById('wave-period').innerText = marineData.hourly.wave_period[idx] != null ? `${marineData.hourly.wave_period[idx].toFixed(0)} s` : '--';
-    document.getElementById('wind-speed').innerText = weatherData.hourly.wind_speed_10m[windIdx] != null ? `${weatherData.hourly.wind_speed_10m[windIdx].toFixed(0)} km/h` : '--';
-    document.getElementById('wind-dir').innerText = weatherData.hourly.wind_direction_10m[windIdx] != null ? getWindDirection(weatherData.hourly.wind_direction_10m[windIdx]) : '--';
+    const waveHEl = document.getElementById('wave-height');
+    if (waveHEl) waveHEl.innerText = marineData.hourly.wave_height[idx] != null ? `${marineData.hourly.wave_height[idx].toFixed(1)} m` : '--';
+    const wavePEl = document.getElementById('wave-period');
+    if (wavePEl) wavePEl.innerText = marineData.hourly.wave_period[idx] != null ? `${marineData.hourly.wave_period[idx].toFixed(0)} s` : '--';
+    const windSEl = document.getElementById('wind-speed');
+    if (windSEl) windSEl.innerText = weatherData.hourly.wind_speed_10m[windIdx] != null ? `${weatherData.hourly.wind_speed_10m[windIdx].toFixed(0)} km/h` : '--';
+    const windDEl = document.getElementById('wind-dir');
+    if (windDEl) windDEl.innerText = weatherData.hourly.wind_direction_10m[windIdx] != null ? getWindDirection(weatherData.hourly.wind_direction_10m[windIdx]) : '--';
     
-    // Precipitation
     document.getElementById('precip-prob').innerText = weatherData.hourly.precipitation_probability[windIdx] != null ? `${weatherData.hourly.precipitation_probability[windIdx]}%` : '--%';
     document.getElementById('precip-amount').innerText = weatherData.hourly.precipitation[windIdx] != null ? `${weatherData.hourly.precipitation[windIdx].toFixed(1)} mm` : '--';
 
     const d = new Date(selectedDate);
-    if (!isToday) document.getElementById('current-time').innerText = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const timeEl = document.getElementById('current-time');
+    if (!isToday) { if (timeEl) timeEl.innerText = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }); }
     else updateClock();
 
     const tides = getOfficialTidesForDate(selectedDate);
@@ -244,62 +258,65 @@ function updateUI() {
         drawTideGraph(sliceTimes, sliceHeights, isToday ? now : null);
     }
 
-    // Solunar Fishing Activity
-    updateFishingUI(tides);
+    updateFishingUI();
 }
 
-function updateFishingUI(tides) {
+function updateFishingUI() {
     const loc = myLocations.find(l => l.id === currentLocId);
+    if (!loc) return;
     const date = new Date(selectedDate);
     
-    // 1. Get Sun & Moon times for the day
     const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
     const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
     const moonIllum = SunCalc.getMoonIllumination(date);
+    let nadir = null;
+    if (moonTimes.mainTransit) nadir = new Date(moonTimes.mainTransit.getTime() + 12.42 * 3600000);
     
-    // 2. Score mapping (0-100)
     let hourlyScores = [];
     for (let h = 0; h < 24; h++) {
-        let score = 20; // Base score
+        let score = 20;
         let hourDate = new Date(date); hourDate.setHours(h);
-        
-        // Solar bonus (Sunrise/Sunset ± 1h)
-        if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
-        
-        // Moon bonus (Major: Transit ± 1h, Minor: Rise/Set ± 1h)
-        if (moonTimes.mainTransit && Math.abs(hourDate - moonTimes.mainTransit) < 3600000) score += 25;
+        if (moonTimes.mainTransit && Math.abs(hourDate - moonTimes.mainTransit) < 5400000) score += 35;
+        if (nadir && Math.abs(hourDate - nadir) < 5400000) score += 30;
         if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 15;
         if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 15;
-        
-        // Tide Flow bonus (Midpoint between tides ± 1.5h)
-        // Find midpoints between consecutive tide events
-        let dayTides = getOfficialTidesFullDay(selectedDate);
-        dayTides.forEach((t, i) => {
-            if (i < dayTides.length - 1) {
-                const midTime = new Date((t.time.getTime() + dayTides[i+1].time.getTime()) / 2);
-                if (Math.abs(hourDate - midTime) < 5400000) score += 20;
-            }
-        });
+        if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
 
-        // Phase multiplier (Full/New moon)
-        if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.2;
-        
+        let dayTides = getOfficialTidesFullDay(selectedDate);
+        dayTides.forEach(tide => {
+            const timeDiff = Math.abs(hourDate - tide.time);
+            if (timeDiff < 3600000) score += 25;
+            else if (timeDiff < 7200000) score += 15;
+        });
+        if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.3;
         hourlyScores.push({ hour: h, score: Math.min(100, score) });
     }
     
-    // Find best hour
-    const best = hourlyScores.sort((a,b) => b.score - a.score)[0];
-    const level = best.score > 80 ? 'Excelente' : best.score > 60 ? 'Buena' : best.score > 40 ? 'Media' : 'Baja';
-    const color = best.score > 80 ? '#FFD700' : best.score > 60 ? '#4CAF50' : best.score > 40 ? '#00D2FF' : '#AAAAAA';
+    // Find the two best non-contiguous periods
+    const sorted = [...hourlyScores].sort((a,b) => b.score - a.score);
+    const best1 = sorted[0];
+    const best2 = sorted.find(s => Math.abs(s.hour - best1.hour) >= 6) || sorted[1];
     
-    document.getElementById('fishing-time').innerText = `${String(best.hour).padStart(2,'0')}:00`;
-    document.getElementById('fishing-level').innerText = level;
-    document.getElementById('fishing-score-bar').style.setProperty('--activity-percent', `${best.score}%`);
-    document.getElementById('fishing-score-bar').style.setProperty('--activity-color', color);
+    const peaks = [best1, best2].sort((a,b) => a.hour - b.hour);
+    
+    peaks.forEach((peak, i) => {
+        const num = i + 1;
+        const level = peak.score > 85 ? 'Excelente' : peak.score > 70 ? 'Muy Buena' : peak.score > 50 ? 'Buena' : peak.score > 30 ? 'Media' : 'Baja';
+        const color = peak.score > 85 ? '#FFD700' : peak.score > 70 ? '#FF8C00' : peak.score > 50 ? '#4CAF50' : '#00D2FF';
+        
+        document.getElementById(`fishing-time-${num}`).innerText = `${String(peak.hour).padStart(2,'0')}:00`;
+        document.getElementById(`fishing-level-${num}`).innerText = level;
+        const bar = document.getElementById(`fishing-score-bar-${num}`);
+        if (bar) {
+            bar.style.setProperty('--activity-percent', `${peak.score}%`);
+            bar.style.setProperty('--activity-color', color);
+        }
+    });
 }
 
 function getOfficialTidesFullDay(dateStr) {
     const loc = myLocations.find(l => l.id === currentLocId);
+    if (!loc) return [];
     const dayData = OFFICIAL_TIDES[dateStr];
     if (!dayData) return [];
     const portData = dayData[loc.port];
@@ -322,6 +339,7 @@ function combineDateAndTime(date, time) { return new Date(`${date}T${time}:00`);
 
 function updateTideUI(tides, isToday) {
     const list = document.getElementById('tide-list');
+    if (!list) return;
     list.innerHTML = `<p style="font-size:0.7rem; color:var(--accent); margin-bottom:10px; opacity:0.8;">FUENTE OFICIAL: METEOGALICIA</p>`;
     if (tides.length === 0) { list.innerHTML += `<p>${isToday ? 'No hay más mareas hoy.' : 'No hay datos.'}</p>`; return; }
     tides.forEach(t => {
@@ -349,5 +367,8 @@ function drawTideGraph(times, heights, now) {
 }
 
 function getWindDirection(deg) { const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']; return directions[Math.round(deg / 45) % 8]; }
-function showLoading() { document.getElementById('tide-list').innerHTML = '<div class="loading-spinner"></div>'; }
+function showLoading() {
+    const list = document.getElementById('tide-list');
+    if (list) list.innerHTML = '<div class="loading-spinner"></div>';
+}
 init();

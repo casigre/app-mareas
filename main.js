@@ -211,7 +211,7 @@ async function refreshData() {
     if (!loc) return;
     showLoading();
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wave_height,wave_period&minutely_15=sea_level_height_msl&timezone=auto&forecast_days=7`;
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&Daily=sunrise,sunset&timezone=auto&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         marineData = mRes; weatherData = wRes;
@@ -250,7 +250,6 @@ function updateUI() {
     const tides = getOfficialTidesForDate(selectedDate);
     updateTideUI(tides, isToday);
     
-    // Graph
     const start24 = marineData.minutely_15.time.findIndex(t => t.startsWith(selectedDate));
     if (start24 !== -1) {
         const sliceTimes = marineData.minutely_15.time.slice(start24, start24 + 96);
@@ -269,41 +268,47 @@ function updateFishingUI() {
     const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
     const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
     const moonIllum = SunCalc.getMoonIllumination(date);
-    let nadir = null;
-    if (moonTimes.mainTransit) nadir = new Date(moonTimes.mainTransit.getTime() + 12.42 * 3600000);
+    
+    // Solunar Periods (Strictly Astro)
+    let mainT = moonTimes.mainTransit;
+    if (!mainT) {
+        const lunarAge = moonIllum.phase * 29.53;
+        const transitH = (lunarAge * 0.8) % 24;
+        mainT = new Date(date); mainT.setHours(transitH);
+    }
+    const nadir = new Date(mainT.getTime() + 12.42 * 3600000);
     
     let hourlyScores = [];
     for (let h = 0; h < 24; h++) {
         let score = 20;
         let hourDate = new Date(date); hourDate.setHours(h);
-        if (moonTimes.mainTransit && Math.abs(hourDate - moonTimes.mainTransit) < 5400000) score += 35;
-        if (nadir && Math.abs(hourDate - nadir) < 5400000) score += 30;
-        if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 15;
-        if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 15;
+        
+        // Major Periods (+40)
+        if (Math.abs(hourDate - mainT) < 5400000) score += 40;
+        if (Math.abs(hourDate - nadir) < 5400000) score += 35;
+        
+        // Minor Periods (+20)
+        if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 20;
+        if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 20;
+        
+        // Solar windows (+20)
         if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
 
-        let dayTides = getOfficialTidesFullDay(selectedDate);
-        dayTides.forEach(tide => {
-            const timeDiff = Math.abs(hourDate - tide.time);
-            if (timeDiff < 3600000) score += 25;
-            else if (timeDiff < 7200000) score += 15;
-        });
+        // NO TIDE INFLUENCE AS PER USER REQUEST
+
         if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.3;
         hourlyScores.push({ hour: h, score: Math.min(100, score) });
     }
     
-    // Find the two best non-contiguous periods
     const sorted = [...hourlyScores].sort((a,b) => b.score - a.score);
     const best1 = sorted[0];
     const best2 = sorted.find(s => Math.abs(s.hour - best1.hour) >= 6) || sorted[1];
     
     const peaks = [best1, best2].sort((a,b) => a.hour - b.hour);
-    
     peaks.forEach((peak, i) => {
         const num = i + 1;
-        const level = peak.score > 85 ? 'Excelente' : peak.score > 70 ? 'Muy Buena' : peak.score > 50 ? 'Buena' : peak.score > 30 ? 'Media' : 'Baja';
-        const color = peak.score > 85 ? '#FFD700' : peak.score > 70 ? '#FF8C00' : peak.score > 50 ? '#4CAF50' : '#00D2FF';
-        
+        const level = peak.score > 85 ? 'Excelente' : peak.score > 70 ? 'Muy Buena' : peak.score > 55 ? 'Buena' : peak.score > 35 ? 'Media' : 'Baja';
+        const color = peak.score > 85 ? '#FFD700' : peak.score > 70 ? '#FF8C00' : peak.score > 55 ? '#4CAF50' : '#00D2FF';
         document.getElementById(`fishing-time-${num}`).innerText = `${String(peak.hour).padStart(2,'0')}:00`;
         document.getElementById(`fishing-level-${num}`).innerText = level;
         const bar = document.getElementById(`fishing-score-bar-${num}`);

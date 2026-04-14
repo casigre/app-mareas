@@ -1,25 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mareas & Oleaje</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#002b4e">
-    
+
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
+
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <link rel="stylesheet" href="style.css?v=2">
 </head>
+
 <body>
     <div id="map-container">
         <div id="map"></div>
@@ -28,128 +31,143 @@
 
     <main class="app-container">
         <header>
-        <header>
-            <div id="location-selector-trigger" onclick="toggleLocationsModal()">
-                <h1 id="location-name">Porto do Son</h1>
-                <i class="fa-solid fa-chevron-down"></i>
-            </div>
-            <div id="date-selector" class="date-scroller"></div>
-            <p id="current-time">Cargando datos...</p>
-        </header>
+            <header>
+                <div id="location-selector-trigger" onclick="toggleLocationsModal()">
+                    <h1 id="location-name">Porto do Son</h1>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+                <div id="date-selector" class="date-scroller"></div>
+                <p id="current-time">Cargando datos...</p>
+            </header>
 
-        <!-- Locations Modal -->
-        <div id="locations-modal" class="modal-backdrop" onclick="toggleLocationsModal(event)">
-            <div class="modal-content glass" onclick="event.stopPropagation()">
-                <div class="modal-header">
-                    <h3>Mis Ubicaciones</h3>
-                    <button class="close-btn" onclick="toggleLocationsModal()">&times;</button>
-                </div>
-                
-                <div class="search-box">
-                    <input type="text" id="location-search" placeholder="Buscar nueva playa o puerto..." oninput="debounceSearch()">
-                    <div id="search-results" class="search-results"></div>
-                </div>
+            <!-- Locations Modal -->
+            <div id="locations-modal" class="modal-backdrop" onclick="toggleLocationsModal(event)">
+                <div class="modal-content glass" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h3>Mis Ubicaciones</h3>
+                        <button class="close-btn" onclick="toggleLocationsModal()">&times;</button>
+                    </div>
 
-                <div id="my-locations-list" class="locations-list">
-                    <!-- Dynamic list here -->
-                </div>
-            </div>
-        </div>
+                    <div class="search-box">
+                        <input type="text" id="location-search" placeholder="Buscar nueva playa o puerto..."
+                            oninput="debounceSearch()">
+                        <div id="search-results" class="search-results"></div>
+                    </div>
 
-        <section class="dashboard">
-            <!-- Mareas Card -->
-            <div class="card glass" id="tides-card">
-                <div class="card-header">
-                    <i class="fa-solid fa-water"></i>
-                    <h2>Próximas Mareas</h2>
-                </div>
-                <div id="tide-graph-container">
-                    <svg id="tide-graph" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
-                </div>
-                <div class="tide-events" id="tide-list">
-                    <div class="loading-spinner"></div>
+                    <div id="my-locations-list" class="locations-list">
+                        <!-- Dynamic list here -->
+                    </div>
                 </div>
             </div>
 
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <!-- Oleaje -->
-                <div class="card glass stat-card">
-                    <i class="fa-solid fa-house-tsunami stat-icon"></i>
-                    <div class="stat-info">
-                        <span class="stat-label">Oleaje</span>
-                        <span class="stat-value" id="wave-height">-- m</span>
-                        <span class="stat-sub" id="wave-period">-- s</span>
+            <section class="dashboard">
+                <!-- Mareas Card -->
+                <div class="card glass" id="tides-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-water"></i>
+                        <h2>Próximas Mareas</h2>
+                    </div>
+                    <div id="tide-graph-container">
+                        <svg id="tide-graph" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="tide-events" id="tide-list">
+                        <div class="loading-spinner"></div>
                     </div>
                 </div>
 
-                <!-- Viento -->
-                <div class="card glass stat-card">
-                    <i class="fa-solid fa-wind stat-icon"></i>
-                    <div class="stat-info">
-                        <span class="stat-label">Viento</span>
-                        <span class="stat-value" id="wind-speed">-- km/h</span>
-                        <span class="stat-sub" id="wind-dir">--</span>
-                    </div>
-                </div>
-
-                <!-- Lluvia -->
-                <div class="card glass stat-card">
-                    <i class="fa-solid fa-cloud-rain stat-icon"></i>
-                    <div class="stat-info">
-                        <span class="stat-label">Lluvia</span>
-                        <span class="stat-value" id="precip-prob">--%</span>
-                        <span class="stat-sub" id="precip-amount">-- mm</span>
-                    </div>
-                </div>
-
-                <!-- Pesca Periodo 1 -->
-                <div class="card glass stat-card" id="fishing-card-1">
-                    <i class="fa-solid fa-fish-fins stat-icon"></i>
-                    <div class="stat-info">
-                        <span class="stat-label">P1 Pesca</span>
-                        <span class="stat-value" id="fishing-time-1">--:--</span>
-                        <div class="activity-meter">
-                            <div class="activity-bar" id="fishing-score-bar-1"></div>
-                            <span class="stat-sub" id="fishing-level-1">--</span>
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <!-- Oleaje -->
+                    <div class="card glass stat-card">
+                        <i class="fa-solid fa-house-tsunami stat-icon"></i>
+                        <div class="stat-info">
+                            <span class="stat-label">Oleaje</span>
+                            <span class="stat-value" id="wave-height">-- m</span>
+                            <span class="stat-sub" id="wave-period">-- s</span>
                         </div>
-                        <span class="coincidence-tag">Coincide con Marea</span>
                     </div>
-                </div>
 
-                <!-- Pesca Periodo 2 -->
-                <div class="card glass stat-card" id="fishing-card-2">
-                    <i class="fa-solid fa-fish-fins stat-icon"></i>
-                    <div class="stat-info">
-                        <span class="stat-label">P2 Pesca</span>
-                        <span class="stat-value" id="fishing-time-2">--:--</span>
-                        <div class="activity-meter">
-                            <div class="activity-bar" id="fishing-score-bar-2"></div>
-                            <span class="stat-sub" id="fishing-level-2">--</span>
+                    <!-- Viento -->
+                    <div class="card glass stat-card">
+                        <i class="fa-solid fa-wind stat-icon"></i>
+                        <div class="stat-info">
+                            <span class="stat-label">Viento</span>
+                            <span class="stat-value" id="wind-speed">-- km/h</span>
+                            <span class="stat-sub" id="wind-dir">--</span>
                         </div>
-                        <span class="coincidence-tag">Coincide con Marea</span>
+                    </div>
+
+                    <!-- Lluvia -->
+                    <div class="card glass stat-card">
+                        <i class="fa-solid fa-cloud-rain stat-icon"></i>
+                        <div class="stat-info">
+                            <span class="stat-label">Lluvia</span>
+                            <span class="stat-value" id="precip-prob">--%</span>
+                            <span class="stat-sub" id="precip-amount">-- mm</span>
+                        </div>
+                    </div>
+
+                    <!-- Pesca Periodo 1 -->
+                    <div class="card glass stat-card" id="fishing-card-1">
+                        <i class="fa-solid fa-fish-fins stat-icon"></i>
+                        <div class="stat-info">
+                            <span class="stat-label">P1 Pesca</span>
+                            <span class="stat-value" id="fishing-time-1">--:--</span>
+                            <div class="activity-meter">
+                                <div class="activity-bar" id="fishing-score-bar-1"></div>
+                                <span class="stat-sub" id="fishing-level-1">--</span>
+                            </div>
+                            <span class="coincidence-tag">Coincide con Marea</span>
+                        </div>
+                    </div>
+
+                    <!-- Pesca Periodo 2 -->
+                    <div class="card glass stat-card" id="fishing-card-2">
+                        <i class="fa-solid fa-fish-fins stat-icon"></i>
+                        <div class="stat-info">
+                            <span class="stat-label">P2 Pesca</span>
+                            <span class="stat-value" id="fishing-time-2">--:--</span>
+                            <div class="activity-meter">
+                                <div class="activity-bar" id="fishing-score-bar-2"></div>
+                                <span class="stat-sub" id="fishing-level-2">--</span>
+                            </div>
+                            <span class="coincidence-tag">Coincide con Marea</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Footer / Credits -->
-        <footer class="app-footer">
-            <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo</p>
-        </footer>
+            <!-- Footer / Credits -->
+            <footer class="app-footer">
+                <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo</p>
+            </footer>
     </main>
 
     <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <script src="main.js?v=2"></script>
     <script>
         if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
+                    .then(reg => {
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'activated') {
+                                    // Soft reload to apply changes if the user is active
+                                    console.log('Nueva versión activada. Recargando...');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                    })
                     .catch(err => console.log('Service Worker no disponible en este entorno.'));
             });
         }
     </script>
 </body>
+
 </html>

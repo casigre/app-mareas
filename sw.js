@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mareas-v2';
+const CACHE_NAME = 'mareas-v3';
 const ASSETS = [
     'index.html',
     'style.css',
@@ -12,6 +12,22 @@ const ASSETS = [
 self.addEventListener('install', (e) => {
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cache) => {
+                    if (cache !== CACHE_NAME) {
+                        console.log('Service Worker: limpiando caché antiguo');
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
     );
 });
 

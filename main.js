@@ -54,7 +54,10 @@ function initMap() {
         attributionControl: false
     }).setView([loc.lat, loc.lon], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    }).addTo(map);
     
     marker = L.marker([loc.lat, loc.lon], {
         icon: L.divIcon({

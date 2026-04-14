@@ -103,6 +103,7 @@ function updateClock() {
 
 function toggleLocationsModal(e) {
     const modal = document.getElementById('locations-modal');
+    if (!modal) return;
     const isVisible = modal.style.display === 'flex';
     modal.style.display = isVisible ? 'none' : 'flex';
     if (!isVisible) {
@@ -113,6 +114,7 @@ function toggleLocationsModal(e) {
 
 function renderLocationsList() {
     const list = document.getElementById('my-locations-list');
+    if (!list) return;
     list.innerHTML = '';
     myLocations.forEach(loc => {
         const item = document.createElement('div');
@@ -198,7 +200,7 @@ async function refreshData() {
     const loc = myLocations.find(l => l.id === currentLocId);
     showLoading();
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wave_height,wave_period&minutely_15=sea_level_height_msl&timezone=auto&forecast_days=7`;
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m&timezone=auto&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         marineData = mRes; weatherData = wRes;
@@ -222,6 +224,12 @@ function updateUI() {
     document.getElementById('wind-speed').innerText = weatherData.hourly.wind_speed_10m[windIdx] != null ? `${weatherData.hourly.wind_speed_10m[windIdx].toFixed(0)} km/h` : '--';
     document.getElementById('wind-dir').innerText = weatherData.hourly.wind_direction_10m[windIdx] != null ? getWindDirection(weatherData.hourly.wind_direction_10m[windIdx]) : '--';
     
+    // Precipitation
+    const precipProb = weatherData.hourly.precipitation_probability[windIdx];
+    const precipAmount = weatherData.hourly.precipitation[windIdx];
+    document.getElementById('precip-prob').innerText = precipProb != null ? `${precipProb}%` : '--%';
+    document.getElementById('precip-amount').innerText = precipAmount != null ? `${precipAmount.toFixed(1)} mm` : '-- mm';
+
     const d = new Date(selectedDate);
     if (!isToday) document.getElementById('current-time').innerText = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
     else updateClock();
@@ -279,7 +287,7 @@ function drawTideGraph(times, heights, now) {
         const idx = times.findIndex(t => t.startsWith(nowStr));
         if (idx !== -1) { const currentX = (idx / (heights.length - 1)) * width; nowMarker = `<line x1="${currentX}" y1="0" x2="${currentX}" y2="${height}" stroke="white" stroke-width="1" stroke-dasharray="4" />`; }
     }
-    svg.innerHTML = `<linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.4" /><stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" /></linearGradient><path d="${pathData} L ${width},${height} L 0,${height} Z" fill="url(#grad)" stroke="none" /><path d="${pathData}" fill="none" stroke="var(--accent)" stroke-width="2" />${nowMarker}`;
+    svg.innerHTML = `<linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.4" /><stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" /></linearGradient><path d="${pathData} L ${width},${height} Z" fill="url(#grad)" stroke="none" /><path d="${pathData}" fill="none" stroke="var(--accent)" stroke-width="2" />${nowMarker}`;
 }
 
 function getWindDirection(deg) { const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']; return directions[Math.round(deg / 45) % 8]; }

@@ -243,6 +243,22 @@ h1 {
     color: var(--text-dim);
 }
 
+.coincidence-tag {
+    font-size: 0.6rem;
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 4px;
+    display: none;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.highlight-peak .coincidence-tag {
+    display: inline-block;
+}
+
 /* Dashboard & Cards */
 .dashboard {
     flex: 1;
@@ -259,6 +275,12 @@ h1 {
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     box-shadow: var(--card-shadow);
+    transition: border 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass.highlight-peak {
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), var(--card-shadow);
 }
 
 .card {

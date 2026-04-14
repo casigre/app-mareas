@@ -268,8 +268,6 @@ function updateFishingUI() {
     const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
     const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
     const moonIllum = SunCalc.getMoonIllumination(date);
-    
-    // Solunar Periods (Strictly Astro)
     let mainT = moonTimes.mainTransit;
     if (!mainT) {
         const lunarAge = moonIllum.phase * 29.53;
@@ -282,20 +280,11 @@ function updateFishingUI() {
     for (let h = 0; h < 24; h++) {
         let score = 20;
         let hourDate = new Date(date); hourDate.setHours(h);
-        
-        // Major Periods (+40)
         if (Math.abs(hourDate - mainT) < 5400000) score += 40;
         if (Math.abs(hourDate - nadir) < 5400000) score += 35;
-        
-        // Minor Periods (+20)
         if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 20;
         if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 20;
-        
-        // Solar windows (+20)
         if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
-
-        // NO TIDE INFLUENCE AS PER USER REQUEST
-
         if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.3;
         hourlyScores.push({ hour: h, score: Math.min(100, score) });
     }
@@ -303,12 +292,16 @@ function updateFishingUI() {
     const sorted = [...hourlyScores].sort((a,b) => b.score - a.score);
     const best1 = sorted[0];
     const best2 = sorted.find(s => Math.abs(s.hour - best1.hour) >= 6) || sorted[1];
-    
     const peaks = [best1, best2].sort((a,b) => a.hour - b.hour);
+    
+    const dayTides = getOfficialTidesFullDay(selectedDate);
+
     peaks.forEach((peak, i) => {
         const num = i + 1;
+        const card = document.getElementById(`fishing-card-${num}`);
         const level = peak.score > 85 ? 'Excelente' : peak.score > 70 ? 'Muy Buena' : peak.score > 55 ? 'Buena' : peak.score > 35 ? 'Media' : 'Baja';
         const color = peak.score > 85 ? '#FFD700' : peak.score > 70 ? '#FF8C00' : peak.score > 55 ? '#4CAF50' : '#00D2FF';
+        
         document.getElementById(`fishing-time-${num}`).innerText = `${String(peak.hour).padStart(2,'0')}:00`;
         document.getElementById(`fishing-level-${num}`).innerText = level;
         const bar = document.getElementById(`fishing-score-bar-${num}`);
@@ -316,6 +309,11 @@ function updateFishingUI() {
             bar.style.setProperty('--activity-percent', `${peak.score}%`);
             bar.style.setProperty('--activity-color', color);
         }
+
+        // Check for Tide Coincidence
+        let peakDate = new Date(date); peakDate.setHours(peak.hour);
+        const hasTideCoincidence = dayTides.some(tide => Math.abs(peakDate - tide.time) < 5400000); // 1.5h window
+        if (card) card.classList.toggle('highlight-peak', hasTideCoincidence);
     });
 }
 

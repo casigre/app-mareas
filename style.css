@@ -18,7 +18,8 @@
 
 body {
     font-family: 'Outfit', sans-serif;
-    background-color: var(--bg-dark);
+    background: var(--bg-dark); /* Fallback */
+    background-color: transparent;
     color: var(--text);
     height: 100vh;
     height: 100svh;

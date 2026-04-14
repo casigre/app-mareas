@@ -28,15 +28,33 @@
 
     <main class="app-container">
         <header>
-            <div class="location-scroller">
-                <button class="nav-btn active" data-id="porto" onclick="setLocation('porto')">Porto do Son</button>
-                <button class="nav-btn" data-id="ribeira" onclick="setLocation('ribeira')">Ribeira</button>
-                <button class="nav-btn" data-id="aguino" onclick="setLocation('aguino')">Aguiño</button>
+        <header>
+            <div id="location-selector-trigger" onclick="toggleLocationsModal()">
+                <h1 id="location-name">Porto do Son</h1>
+                <i class="fa-solid fa-chevron-down"></i>
             </div>
             <div id="date-selector" class="date-scroller"></div>
-            <h1 id="location-name">Porto do Son</h1>
             <p id="current-time">Cargando datos...</p>
         </header>
+
+        <!-- Locations Modal -->
+        <div id="locations-modal" class="modal-backdrop" onclick="toggleLocationsModal(event)">
+            <div class="modal-content glass" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>Mis Ubicaciones</h3>
+                    <button class="close-btn" onclick="toggleLocationsModal()">&times;</button>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="location-search" placeholder="Buscar nueva playa o puerto..." oninput="debounceSearch()">
+                    <div id="search-results" class="search-results"></div>
+                </div>
+
+                <div id="my-locations-list" class="locations-list">
+                    <!-- Dynamic list here -->
+                </div>
+            </div>
+        </div>
 
         <section class="dashboard">
             <!-- Mareas Card -->

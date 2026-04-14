@@ -46,7 +46,7 @@ function init() {
     renderDateSelector();
     renderLocationsList();
     refreshData();
-    setInterval(updateClock, 60000);
+    setInterval(updateClock, 10000);
     updateClock();
 }
 
@@ -214,8 +214,10 @@ async function refreshData() {
     const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
-        marineData = mRes; weatherData = wRes;
-        updateUI();
+        if (mRes.hourly && wRes.hourly) {
+            marineData = mRes; weatherData = wRes;
+            updateUI();
+        }
     } catch (error) { console.error("Error:", error); }
 }
 
@@ -265,30 +267,44 @@ function updateFishingUI() {
     if (!loc) return;
     const date = new Date(selectedDate);
     
-    const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
-    const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
-    const moonIllum = SunCalc.getMoonIllumination(date);
-    let mainT = moonTimes.mainTransit;
-    if (!mainT) {
-        const lunarAge = moonIllum.phase * 29.53;
-        const transitH = (lunarAge * 0.8) % 24;
-        mainT = new Date(date); mainT.setHours(transitH);
+    // --- HIGH PRECISION SCANNING (V2) ---
+    // Scan every 15 mins for Zenith (Max Altitude) and Nadir (Min Altitude)
+    let scannedPoints = [];
+    for (let m = 0; m < 1440; m += 15) {
+        let t = new Date(date); t.setMinutes(m);
+        let pos = SunCalc.getMoonPosition(t, loc.lat, loc.lon);
+        scannedPoints.push({ time: t, alt: pos.altitude });
     }
-    const nadir = new Date(mainT.getTime() + 12.42 * 3600000);
     
+    // Find Zenith (Major 1) & Nadir (Major 2) in local time
+    const zenith = [...scannedPoints].sort((a,b) => b.alt - a.alt)[0].time;
+    const nadir = [...scannedPoints].sort((a,b) => a.alt - b.alt)[0].time;
+    
+    const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
+    const moonIllum = SunCalc.getMoonIllumination(date);
+    const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
+
     let hourlyScores = [];
     for (let h = 0; h < 24; h++) {
-        let score = 20;
+        let score = 15;
         let hourDate = new Date(date); hourDate.setHours(h);
-        if (Math.abs(hourDate - mainT) < 5400000) score += 40;
-        if (Math.abs(hourDate - nadir) < 5400000) score += 35;
+        
+        // Major Periods: scanned zenith and nadir
+        if (Math.abs(hourDate - zenith) < 3600000) score += 45; // peak ±1h
+        if (Math.abs(hourDate - nadir) < 3600000) score += 40;
+        
+        // Minor Periods: Rise/Set
         if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 20;
         if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 20;
-        if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
-        if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.3;
+        
+        // Solar windows
+        if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 15;
+
+        if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.4;
         hourlyScores.push({ hour: h, score: Math.min(100, score) });
     }
     
+    // Logic to select the TWO best peaks (separated by at least 6 hours)
     const sorted = [...hourlyScores].sort((a,b) => b.score - a.score);
     const best1 = sorted[0];
     const best2 = sorted.find(s => Math.abs(s.hour - best1.hour) >= 6) || sorted[1];
@@ -310,9 +326,9 @@ function updateFishingUI() {
             bar.style.setProperty('--activity-color', color);
         }
 
-        // Check for Tide Coincidence
+        // Highlight if overlaps with official tide event
         let peakDate = new Date(date); peakDate.setHours(peak.hour);
-        const hasTideCoincidence = dayTides.some(tide => Math.abs(peakDate - tide.time) < 5400000); // 1.5h window
+        const hasTideCoincidence = dayTides.some(tide => Math.abs(peakDate - tide.time) < 5400000); // 1.5h
         if (card) card.classList.toggle('highlight-peak', hasTideCoincidence);
     });
 }

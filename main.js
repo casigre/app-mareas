@@ -98,7 +98,8 @@ function selectDate(iso) {
 function updateClock() {
     const now = new Date();
     if (selectedDate !== now.toISOString().split('T')[0]) return;
-    document.getElementById('current-time').innerText = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + " - " + now.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const timeEl = document.getElementById('current-time');
+    if (timeEl) timeEl.innerText = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + " - " + now.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
 function toggleLocationsModal(e) {
@@ -200,7 +201,7 @@ async function refreshData() {
     const loc = myLocations.find(l => l.id === currentLocId);
     showLoading();
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wave_height,wave_period&minutely_15=sea_level_height_msl&timezone=auto&forecast_days=7`;
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&timezone=auto&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         marineData = mRes; weatherData = wRes;
@@ -225,10 +226,8 @@ function updateUI() {
     document.getElementById('wind-dir').innerText = weatherData.hourly.wind_direction_10m[windIdx] != null ? getWindDirection(weatherData.hourly.wind_direction_10m[windIdx]) : '--';
     
     // Precipitation
-    const precipProb = weatherData.hourly.precipitation_probability[windIdx];
-    const precipAmount = weatherData.hourly.precipitation[windIdx];
-    document.getElementById('precip-prob').innerText = precipProb != null ? `${precipProb}%` : '--%';
-    document.getElementById('precip-amount').innerText = precipAmount != null ? `${precipAmount.toFixed(1)} mm` : '-- mm';
+    document.getElementById('precip-prob').innerText = weatherData.hourly.precipitation_probability[windIdx] != null ? `${weatherData.hourly.precipitation_probability[windIdx]}%` : '--%';
+    document.getElementById('precip-amount').innerText = weatherData.hourly.precipitation[windIdx] != null ? `${weatherData.hourly.precipitation[windIdx].toFixed(1)} mm` : '--';
 
     const d = new Date(selectedDate);
     if (!isToday) document.getElementById('current-time').innerText = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -237,15 +236,69 @@ function updateUI() {
     const tides = getOfficialTidesForDate(selectedDate);
     updateTideUI(tides, isToday);
     
+    // Graph
     const start24 = marineData.minutely_15.time.findIndex(t => t.startsWith(selectedDate));
     if (start24 !== -1) {
         const sliceTimes = marineData.minutely_15.time.slice(start24, start24 + 96);
         const sliceHeights = marineData.minutely_15.sea_level_height_msl.slice(start24, start24 + 96);
         drawTideGraph(sliceTimes, sliceHeights, isToday ? now : null);
     }
+
+    // Solunar Fishing Activity
+    updateFishingUI(tides);
 }
 
-function getOfficialTidesForDate(dateStr) {
+function updateFishingUI(tides) {
+    const loc = myLocations.find(l => l.id === currentLocId);
+    const date = new Date(selectedDate);
+    
+    // 1. Get Sun & Moon times for the day
+    const sunTimes = SunCalc.getTimes(date, loc.lat, loc.lon);
+    const moonTimes = SunCalc.getMoonTimes(date, loc.lat, loc.lon);
+    const moonIllum = SunCalc.getMoonIllumination(date);
+    
+    // 2. Score mapping (0-100)
+    let hourlyScores = [];
+    for (let h = 0; h < 24; h++) {
+        let score = 20; // Base score
+        let hourDate = new Date(date); hourDate.setHours(h);
+        
+        // Solar bonus (Sunrise/Sunset ± 1h)
+        if (Math.abs(hourDate - sunTimes.sunrise) < 3600000 || Math.abs(hourDate - sunTimes.sunset) < 3600000) score += 20;
+        
+        // Moon bonus (Major: Transit ± 1h, Minor: Rise/Set ± 1h)
+        if (moonTimes.mainTransit && Math.abs(hourDate - moonTimes.mainTransit) < 3600000) score += 25;
+        if (moonTimes.rise && Math.abs(hourDate - moonTimes.rise) < 3600000) score += 15;
+        if (moonTimes.set && Math.abs(hourDate - moonTimes.set) < 3600000) score += 15;
+        
+        // Tide Flow bonus (Midpoint between tides ± 1.5h)
+        // Find midpoints between consecutive tide events
+        let dayTides = getOfficialTidesFullDay(selectedDate);
+        dayTides.forEach((t, i) => {
+            if (i < dayTides.length - 1) {
+                const midTime = new Date((t.time.getTime() + dayTides[i+1].time.getTime()) / 2);
+                if (Math.abs(hourDate - midTime) < 5400000) score += 20;
+            }
+        });
+
+        // Phase multiplier (Full/New moon)
+        if (moonIllum.phase < 0.05 || moonIllum.phase > 0.95 || (moonIllum.phase > 0.45 && moonIllum.phase < 0.55)) score *= 1.2;
+        
+        hourlyScores.push({ hour: h, score: Math.min(100, score) });
+    }
+    
+    // Find best hour
+    const best = hourlyScores.sort((a,b) => b.score - a.score)[0];
+    const level = best.score > 80 ? 'Excelente' : best.score > 60 ? 'Buena' : best.score > 40 ? 'Media' : 'Baja';
+    const color = best.score > 80 ? '#FFD700' : best.score > 60 ? '#4CAF50' : best.score > 40 ? '#00D2FF' : '#AAAAAA';
+    
+    document.getElementById('fishing-time').innerText = `${String(best.hour).padStart(2,'0')}:00`;
+    document.getElementById('fishing-level').innerText = level;
+    document.getElementById('fishing-score-bar').style.setProperty('--activity-percent', `${best.score}%`);
+    document.getElementById('fishing-score-bar').style.setProperty('--activity-color', color);
+}
+
+function getOfficialTidesFullDay(dateStr) {
     const loc = myLocations.find(l => l.id === currentLocId);
     const dayData = OFFICIAL_TIDES[dateStr];
     if (!dayData) return [];
@@ -253,9 +306,14 @@ function getOfficialTidesForDate(dateStr) {
     const events = [];
     portData.high.forEach(t => events.push({ type: 'Pleamar', time: combineDateAndTime(dateStr, t) }));
     portData.low.forEach(t => events.push({ type: 'Bajamar', time: combineDateAndTime(dateStr, t) }));
+    return events.sort((a,b) => a.time - b.time);
+}
+
+function getOfficialTidesForDate(dateStr) {
+    const events = getOfficialTidesFullDay(dateStr);
     const now = new Date();
     const isToday = dateStr === now.toISOString().split('T')[0];
-    let filtered = events.sort((a,b) => a.time - b.time);
+    let filtered = events;
     if (isToday) filtered = filtered.filter(e => e.time > now).slice(0, 2);
     return filtered;
 }
@@ -287,7 +345,7 @@ function drawTideGraph(times, heights, now) {
         const idx = times.findIndex(t => t.startsWith(nowStr));
         if (idx !== -1) { const currentX = (idx / (heights.length - 1)) * width; nowMarker = `<line x1="${currentX}" y1="0" x2="${currentX}" y2="${height}" stroke="white" stroke-width="1" stroke-dasharray="4" />`; }
     }
-    svg.innerHTML = `<linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.4" /><stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" /></linearGradient><path d="${pathData} L ${width},${height} Z" fill="url(#grad)" stroke="none" /><path d="${pathData}" fill="none" stroke="var(--accent)" stroke-width="2" />${nowMarker}`;
+    svg.innerHTML = `<linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.4" /><stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" /></linearGradient><path d="${pathData} L ${width},${height} L 0,${height} Z" fill="url(#grad)" stroke="none" /><path d="${pathData}" fill="none" stroke="var(--accent)" stroke-width="2" />${nowMarker}`;
 }
 
 function getWindDirection(deg) { const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']; return directions[Math.round(deg / 45) % 8]; }

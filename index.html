@@ -102,18 +102,31 @@
                         <span class="stat-sub" id="precip-amount">-- mm</span>
                     </div>
                 </div>
+
+                <!-- Pesca -->
+                <div class="card glass stat-card" id="fishing-card">
+                    <i class="fa-solid fa-fish-fins stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-label">Actividad Pesca</span>
+                        <span class="stat-value" id="fishing-time">--:--</span>
+                        <div class="activity-meter">
+                            <div class="activity-bar" id="fishing-score-bar"></div>
+                            <span class="stat-sub" id="fishing-level">Baja</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <footer>
-            <button class="refresh-btn" onclick="refreshData()">
-                <i class="fa-solid fa-rotate"></i> Actualizar
-            </button>
+        <!-- Footer / Credits -->
+        <footer class="app-footer">
+            <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo</p>
         </footer>
     </main>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <script src="main.js?v=2"></script>
     <script>
         if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {

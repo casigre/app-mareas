@@ -243,18 +243,22 @@ h1 {
 }
 
 .coincidence-tag {
+    position: absolute;
+    top: 12px;
+    right: 12px;
     font-size: 0.55rem;
-    background: rgba(255, 215, 0, 0.15);
+    background: rgba(255, 215, 0, 0.2);
     color: #ffd700;
     padding: 4px 8px;
     border-radius: 6px;
-    margin-top: 10px;
     display: none;
     text-transform: uppercase;
     font-weight: 800;
-    border: 1px solid rgba(255, 215, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.4);
     width: fit-content;
-    align-self: center; /* Asegura el centrado incluso si el padre falla */
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
 }
 
 .highlight-peak .coincidence-tag {
@@ -372,12 +376,14 @@ h1 {
 }
 
 .stat-card {
+    position: relative; /* Necesario para la etiqueta absoluta */
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centramos icono y texto */
+    align-items: center;
     text-align: center;
     gap: 12px;
-    padding: 20px 12px;
+    padding: 28px 12px 20px 12px; /* Más espacio arriba para la etiqueta */
+    overflow: hidden;
 }
 
 .activity-meter {

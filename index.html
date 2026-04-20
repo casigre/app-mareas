@@ -7,6 +7,7 @@
     <title>Mareas & Oleaje</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#002b4e">
+    <link rel="icon" type="image/png" href="icon-192.png">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -20,7 +21,7 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -73,6 +74,18 @@
                     <div class="tide-events" id="tide-list">
                         <div class="loading-spinner"></div>
                     </div>
+                </div>
+
+                <!-- Predición Marítima Card -->
+                <div class="card glass" id="prediction-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-bullhorn"></i>
+                        <h2>Predición Marítima</h2>
+                    </div>
+                    <div id="prediction-content" class="prediction-text">
+                        <p class="loading-text">Cargando predición...</p>
+                    </div>
+                    <p style="font-size:0.6rem; color:var(--accent); margin-top:10px; opacity:0.6; text-align:right;">FONTE: METEOGALICIA</p>
                 </div>
 
                 <!-- Stats Grid -->
@@ -147,7 +160,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
-    <script src="main.js?v=4"></script>
+    <script src="main.js?v=11"> </script>
     <script>
         if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
             window.addEventListener('load', () => {

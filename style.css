@@ -488,3 +488,19 @@ footer {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.prediction-text {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text);
+    opacity: 0.9;
+}
+
+.prediction-text p {
+    margin-bottom: 12px;
+}
+
+.prediction-text .loading-text {
+    font-style: italic;
+    color: var(--text-dim);
+}

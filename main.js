@@ -1,32 +1,17 @@
-const OFFICIAL_TIDES = {
-    "2026-04-14": {
-        "muros": { "high": ["02:37", "15:06"], "low": ["08:55", "21:09"] },
-        "ribeira": { "high": ["02:37", "15:04"], "low": ["08:55", "21:07"] }
-    },
-    "2026-04-15": {
-        "muros": { "high": ["03:16", "15:43"], "low": ["09:32", "21:46"] },
-        "ribeira": { "high": ["03:16", "15:43"], "low": ["09:29", "21:46"] }
-    },
-    "2026-04-16": {
-        "muros": { "high": ["03:55", "16:18"], "low": ["10:06", "22:22"] },
-        "ribeira": { "high": ["03:53", "16:15"], "low": ["10:06", "22:20"] }
-    },
-    "2026-04-17": {
-        "muros": { "high": ["04:34", "16:54"], "low": ["10:43", "22:59"] },
-        "ribeira": { "high": ["04:34", "16:54"], "low": ["10:43", "23:01"] }
-    },
-    "2026-04-18": {
-        "muros": { "high": ["05:15", "17:33"], "low": ["11:22", "23:42"] },
-        "ribeira": { "high": ["05:13", "17:31"], "low": ["11:20", "23:40"] }
-    },
-    "2026-04-19": {
-        "muros": { "high": ["05:56", "18:17"], "low": ["12:01"] },
-        "ribeira": { "high": ["05:54", "18:17"], "low": ["11:59"] }
-    },
-    "2026-04-20": {
-        "muros": { "high": ["06:41", "19:00"], "low": ["00:24", "12:44"] },
-        "ribeira": { "high": ["06:39", "19:00"], "low": ["00:24", "12:44"] }
-    }
+// Se cargará dinámicamente desde MeteoGalicia
+let dynamicTides = {};
+
+const METEOGALICIA_ZONES = [
+    { id: 1, name: 'Costa Cantábrica', latMin: 43.55 },
+    { id: 2, name: 'Ferrol-Bares', latMin: 43.45 },
+    { id: 3, name: 'Ártabro', latMin: 43.30 },
+    { id: 4, name: 'Costa da Morte', latMin: 42.90 },
+    { id: 5, name: 'Rías Baixas', latMin: 0 }
+];
+
+const METEOGALICIA_PORTS = {
+    'muros': 12,
+    'ribeira': 11
 };
 
 const DEFAULT_LOCATIONS = [
@@ -37,7 +22,7 @@ const DEFAULT_LOCATIONS = [
 
 let myLocations = [];
 let currentLocId = 'porto';
-let selectedDate = new Date().toISOString().split('T')[0];
+let selectedDate = new Date().toLocaleDateString('en-CA');
 let map, marker, marineData, weatherData, searchTimeout;
 
 function init() {
@@ -92,12 +77,17 @@ function renderDateSelector() {
 function selectDate(iso) {
     selectedDate = iso;
     renderDateSelector();
-    updateUI();
+    const loc = myLocations.find(l => l.id === currentLocId);
+    if (loc) {
+        fetchMeteoGaliciaData(loc).then(() => updateUI());
+    } else {
+        updateUI();
+    }
 }
 
 function updateClock() {
     const now = new Date();
-    if (selectedDate !== now.toISOString().split('T')[0]) return;
+    if (selectedDate !== now.toLocaleDateString('en-CA')) return;
     const timeEl = document.getElementById('current-time');
     if (timeEl) timeEl.innerText = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + " - " + now.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
@@ -211,26 +201,103 @@ async function refreshData() {
     if (!loc) return;
     showLoading();
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wave_height,wave_period&minutely_15=sea_level_height_msl&timezone=auto&forecast_days=7`;
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=wind_speed_10m,wind_direction_10m,precipitation,precipitation_probability&daily=sunrise,sunset,precipitation_sum,precipitation_probability_max&timezone=auto&forecast_days=7`;
     try {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         if (mRes.hourly && wRes.hourly) {
             marineData = mRes; weatherData = wRes;
+            await fetchMeteoGaliciaData(loc);
             updateUI();
         }
     } catch (error) { console.error("Error:", error); }
 }
 
+async function fetchMeteoGaliciaData(loc) {
+    const zone = METEOGALICIA_ZONES.find(z => loc.lat >= z.latMin) || METEOGALICIA_ZONES[4];
+    const portId = METEOGALICIA_PORTS[loc.port] || 11;
+    
+    // Calculamos el parámetro 'dia' para la predicción de MeteoGalicia
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const diffDays = Math.round((new Date(selectedDate) - new Date(todayStr)) / 86400000);
+    const dia = Math.max(0, Math.min(3, diffDays)); // MeteoGalicia suele tener 3-4 días
+
+    // Predicción en texto
+    const predUrl = `https://servizos.meteogalicia.gal/mgrss/predicion/jsonPredMaritima.action?idZona=${zone.id}&dia=${dia}&request_locale=gl`;
+    
+    // Mareas: El endpoint requiere la fecha en formato DD/MM/YYYY para devolver datos de un día específico
+    const [y, m_sel, d_sel] = selectedDate.split('-');
+    const formattedDate = `${d_sel}/${m_sel}/${y}`;
+    const tideUrl = `https://servizos.meteogalicia.gal/mgrss/predicion/mareas/jsonMareas.action?idPorto=${portId}&data=${formattedDate}&request_locale=gl`;
+
+    // Función auxiliar para usar el proxy de CORS
+    const proxyUrl = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+    try {
+        const [pResRaw, tResRaw] = await Promise.all([
+            fetch(proxyUrl(predUrl)).then(r => r.json()),
+            fetch(proxyUrl(tideUrl)).then(r => r.json())
+        ]);
+
+        const pRes = pResRaw;
+        const tRes = tResRaw;
+
+        // Procesar Predicción
+        if (pRes.listaPredDiaMaritima && pRes.listaPredDiaMaritima[0] && pRes.listaPredDiaMaritima[0].listaPredZonaMaritima[0]) {
+            const pred = pRes.listaPredDiaMaritima[0].listaPredZonaMaritima[0];
+            const content = `
+                <p><strong>Vento:</strong> ${pred.comentVento}</p>
+                <p><strong>Mar:</strong> ${pred.comentMar}</p>
+                <p><strong>Visibilidade:</strong> ${pred.comentVisibilidade}</p>
+                <p><strong>Mar de fondo:</strong> ${pred.comentMarFondo}</p>
+            `;
+            document.getElementById('prediction-content').innerHTML = content;
+        }
+
+        // Procesar Mareas
+        if (tRes.mareas) {
+            // Guardamos en dynamicTides organizado por fecha
+            tRes.mareas.forEach(day => {
+                // Soportamos 'data' o 'dataMarea', y extraemos solo YYYY-MM-DD
+                const rawDate = day.data || day.dataMarea || "";
+                // Dividimos por espacio o por 'T' para extraer la parte de la fecha (YYYY-MM-DD)
+                const date = rawDate.split(/[\sT]/)[0];
+                if (!date) return;
+                
+                if (!dynamicTides[date]) dynamicTides[date] = {};
+                
+                const tidesForPort = { high: [], low: [] };
+                day.listaMareas.forEach(m => {
+                    // Soportamos 'hora' como "HH:mm", "DD/MM/YYYY HH:mm" o "YYYY-MM-DDTHH:mm"
+                    const timeParts = m.hora.split(/[\sT]/);
+                    const time = timeParts.length > 1 ? timeParts[1].substring(0, 5) : timeParts[0].substring(0, 5);
+                    
+                    // Soportamos 'tipoMarea' o 'estado', y términos en Galego o Castellano
+                    const isHigh = m.tipoMarea === 'Preamar' || m.estado === 'Pleamar' || m.tipoMarea === 'Pleamar';
+                    if (isHigh) tidesForPort.high.push(time);
+                    else tidesForPort.low.push(time);
+                });
+                dynamicTides[date][loc.port] = tidesForPort;
+            });
+        }
+    } catch (e) {
+        console.error("Error MeteoGalicia:", e);
+        document.getElementById('prediction-content').innerHTML = '<p class="error">Non se puido cargar a predición (CORS).</p>';
+    }
+}
+
 function updateUI() {
     if (!marineData || !weatherData) return;
     const now = new Date();
-    const isToday = selectedDate === now.toISOString().split('T')[0];
+    const isToday = selectedDate === now.toLocaleDateString('en-CA');
     const targetHour = isToday ? now.getHours() : 12;
     const targetTimeStr = selectedDate + `T${String(targetHour).padStart(2, '0')}:00`;
     const mIdx = marineData.hourly.time.indexOf(targetTimeStr);
     const idx = mIdx !== -1 ? mIdx : 0;
     const wIdx = weatherData.hourly.time.indexOf(targetTimeStr);
     const windIdx = wIdx !== -1 ? wIdx : 0;
+    
+    const dIdx = weatherData.daily.time.indexOf(selectedDate);
+    const dailyIdx = dIdx !== -1 ? dIdx : 0;
 
     const waveHEl = document.getElementById('wave-height');
     if (waveHEl) waveHEl.innerText = marineData.hourly.wave_height[idx] != null ? `${marineData.hourly.wave_height[idx].toFixed(1)} m` : '--';
@@ -241,8 +308,8 @@ function updateUI() {
     const windDEl = document.getElementById('wind-dir');
     if (windDEl) windDEl.innerText = weatherData.hourly.wind_direction_10m[windIdx] != null ? getWindDirection(weatherData.hourly.wind_direction_10m[windIdx]) : '--';
     
-    document.getElementById('precip-prob').innerText = weatherData.hourly.precipitation_probability[windIdx] != null ? `${weatherData.hourly.precipitation_probability[windIdx]}%` : '--%';
-    document.getElementById('precip-amount').innerText = weatherData.hourly.precipitation[windIdx] != null ? `${weatherData.hourly.precipitation[windIdx].toFixed(1)} mm` : '--';
+    document.getElementById('precip-prob').innerText = weatherData.daily.precipitation_probability_max[dailyIdx] != null ? `${weatherData.daily.precipitation_probability_max[dailyIdx]}%` : '--%';
+    document.getElementById('precip-amount').innerText = weatherData.daily.precipitation_sum[dailyIdx] != null ? `${weatherData.daily.precipitation_sum[dailyIdx].toFixed(1)} mm` : '--';
 
     const d = new Date(selectedDate);
     const timeEl = document.getElementById('current-time');
@@ -336,8 +403,11 @@ function updateFishingUI() {
 function getOfficialTidesFullDay(dateStr) {
     const loc = myLocations.find(l => l.id === currentLocId);
     if (!loc) return [];
-    const dayData = OFFICIAL_TIDES[dateStr];
-    if (!dayData) return [];
+    
+    // Buscamos primero en los datos dinámicos de MeteoGalicia
+    const dayData = dynamicTides[dateStr];
+    if (!dayData || !dayData[loc.port]) return [];
+    
     const portData = dayData[loc.port];
     const events = [];
     portData.high.forEach(t => events.push({ type: 'Pleamar', time: combineDateAndTime(dateStr, t) }));
@@ -348,7 +418,7 @@ function getOfficialTidesFullDay(dateStr) {
 function getOfficialTidesForDate(dateStr) {
     const events = getOfficialTidesFullDay(dateStr);
     const now = new Date();
-    const isToday = dateStr === now.toISOString().split('T')[0];
+    const isToday = dateStr === now.toLocaleDateString('en-CA');
     let filtered = events;
     if (isToday) filtered = filtered.filter(e => e.time > now).slice(0, 2);
     return filtered;

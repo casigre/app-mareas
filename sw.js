@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mareas-v15';
+const CACHE_NAME = 'mareas-v16';
 const ASSETS_TO_UPDATE = ['index.html', 'style.css', 'main.js'];
 const ASSETS = [
     ...ASSETS_TO_UPDATE,
@@ -34,6 +34,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
     
+    // Solo interceptamos archivos de nuestro propio dominio para evitar problemas con proxies/APIs externas
+    if (url.origin !== location.origin) return;
+
     // Para los archivos principales del sistema, usamos Network-First para asegurar actualizaciones
     if (ASSETS_TO_UPDATE.some(asset => url.pathname.endsWith(asset))) {
         e.respondWith(

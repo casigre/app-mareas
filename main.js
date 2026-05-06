@@ -217,61 +217,84 @@ async function fetchMeteoGaliciaData(loc) {
     const portId = METEOGALICIA_PORTS[loc.port] || 11;
     
     // Calculamos el parámetro 'dia' para la predicción de MeteoGalicia
-    const todayStr = new Date().toLocaleDateString('en-CA');
-    const diffDays = Math.round((new Date(selectedDate) - new Date(todayStr)) / 86400000);
-    const dia = Math.max(0, Math.min(3, diffDays)); // MeteoGalicia suele tener 3-4 días
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selDate = new Date(selectedDate);
+    selDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((selDate - today) / 86400000);
+    const dia = Math.max(0, Math.min(3, diffDays)); 
 
-    // Predicción en texto
+    // URLs de MeteoGalicia
     const predUrl = `https://servizos.meteogalicia.gal/mgrss/predicion/jsonPredMaritima.action?idZona=${zone.id}&dia=${dia}&request_locale=gl`;
-    
-    // Mareas: El endpoint requiere la fecha en formato DD/MM/YYYY para devolver datos de un día específico
     const [y, m_sel, d_sel] = selectedDate.split('-');
     const formattedDate = `${d_sel}/${m_sel}/${y}`;
     const tideUrl = `https://servizos.meteogalicia.gal/mgrss/predicion/mareas/jsonMareas.action?idPorto=${portId}&data=${formattedDate}&request_locale=gl`;
 
-    // Función auxiliar para usar el proxy de CORS
-    const proxyUrl = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    // Lista de proxies para mayor fiabilidad
+    const proxies = [
+        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    ];
+
+    async function fetchWithRetry(url) {
+        let lastError;
+        for (const proxyFn of proxies) {
+            try {
+                const res = await fetch(proxyFn(url));
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return await res.json();
+            } catch (e) {
+                lastError = e;
+                console.warn(`Proxy falló para ${url}, probando siguiente...`, e);
+            }
+        }
+        throw lastError;
+    }
 
     try {
-        const [pResRaw, tResRaw] = await Promise.all([
-            fetch(proxyUrl(predUrl)).then(r => r.json()),
-            fetch(proxyUrl(tideUrl)).then(r => r.json())
+        const [pRes, tRes] = await Promise.all([
+            fetchWithRetry(predUrl),
+            fetchWithRetry(tideUrl)
         ]);
 
-        const pRes = pResRaw;
-        const tRes = tResRaw;
-
         // Procesar Predicción
-        if (pRes.listaPredDiaMaritima && pRes.listaPredDiaMaritima[0] && pRes.listaPredDiaMaritima[0].listaPredZonaMaritima[0]) {
-            const pred = pRes.listaPredDiaMaritima[0].listaPredZonaMaritima[0];
-            const content = `
-                <p><strong>Vento:</strong> ${pred.comentVento}</p>
-                <p><strong>Mar:</strong> ${pred.comentMar}</p>
-                <p><strong>Visibilidade:</strong> ${pred.comentVisibilidade}</p>
-                <p><strong>Mar de fondo:</strong> ${pred.comentMarFondo}</p>
-            `;
-            document.getElementById('prediction-content').innerHTML = content;
+        if (pRes && pRes.listaPredDiaMaritima && pRes.listaPredDiaMaritima[0]) {
+            const zones = pRes.listaPredDiaMaritima[0].listaPredZonaMaritima || [];
+            const pred = zones.find(z => z.idZona == zone.id) || zones[0];
+            
+            if (pred) {
+                const content = `
+                    <p><strong>Vento:</strong> ${pred.comentVento || 'Sen datos'}</p>
+                    <p><strong>Mar:</strong> ${pred.comentMar || 'Sen datos'}</p>
+                    <p><strong>Visibilidade:</strong> ${pred.comentVisibilidade || 'Sen datos'}</p>
+                    <p><strong>Mar de fondo:</strong> ${pred.comentMarFondo || 'Sen datos'}</p>
+                `;
+                document.getElementById('prediction-content').innerHTML = content;
+            } else {
+                document.getElementById('prediction-content').innerHTML = '<p>Non hai datos de predicción para esta zona.</p>';
+            }
         }
 
         // Procesar Mareas
-        if (tRes.mareas) {
-            // Guardamos en dynamicTides organizado por fecha
+        if (tRes && tRes.mareas) {
             tRes.mareas.forEach(day => {
-                // Soportamos 'data' o 'dataMarea', y extraemos solo YYYY-MM-DD
                 const rawDate = day.data || day.dataMarea || "";
-                // Dividimos por espacio o por 'T' para extraer la parte de la fecha (YYYY-MM-DD)
-                const date = rawDate.split(/[\sT]/)[0];
-                if (!date) return;
+                let date = rawDate.split(/[\sT]/)[0];
                 
+                // Normalizar formato de fecha de DD/MM/YYYY a YYYY-MM-DD
+                if (date.includes('/')) {
+                    const [d, m, y] = date.split('/');
+                    date = `${y}-${m}-${d}`;
+                }
+                
+                if (!date) return;
                 if (!dynamicTides[date]) dynamicTides[date] = {};
                 
                 const tidesForPort = { high: [], low: [] };
-                day.listaMareas.forEach(m => {
-                    // Soportamos 'hora' como "HH:mm", "DD/MM/YYYY HH:mm" o "YYYY-MM-DDTHH:mm"
+                (day.listaMareas || []).forEach(m => {
                     const timeParts = m.hora.split(/[\sT]/);
                     const time = timeParts.length > 1 ? timeParts[1].substring(0, 5) : timeParts[0].substring(0, 5);
                     
-                    // Soportamos 'tipoMarea' o 'estado', y términos en Galego o Castellano
                     const isHigh = m.tipoMarea === 'Preamar' || m.estado === 'Pleamar' || m.tipoMarea === 'Pleamar';
                     if (isHigh) tidesForPort.high.push(time);
                     else tidesForPort.low.push(time);
@@ -281,7 +304,7 @@ async function fetchMeteoGaliciaData(loc) {
         }
     } catch (e) {
         console.error("Error MeteoGalicia:", e);
-        document.getElementById('prediction-content').innerHTML = '<p class="error">Non se puido cargar a predición (CORS).</p>';
+        document.getElementById('prediction-content').innerHTML = '<p class="error">Non se puido cargar a predición oficial de MeteoGalicia (Erro de conexión).</p>';
     }
 }
 

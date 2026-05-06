@@ -242,6 +242,19 @@ h1 {
     color: var(--text-dim);
 }
 
+.version-tag {
+    font-size: 0.6rem;
+    background: var(--accent);
+    color: var(--bg-dark);
+    padding: 2px 6px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 8px;
+    font-weight: 800;
+    text-shadow: none;
+    opacity: 0.8;
+}
+
 .coincidence-tag {
     position: absolute;
     top: 12px;

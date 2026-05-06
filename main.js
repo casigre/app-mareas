@@ -235,7 +235,8 @@ async function fetchMeteoGaliciaData(loc) {
         (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
         (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
         (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        (url) => `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(url)}`
+        (url) => `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(url)}`,
+        (url) => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`
     ];
 
     async function fetchWithRetry(url) {

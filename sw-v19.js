@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mareas-v18';
-const ASSETS_TO_UPDATE = ['index.html', 'style.css', 'main.js'];
+const CACHE_NAME = 'mareas-v19';
+const ASSETS_TO_UPDATE = ['index.html', 'style.css', 'app.js'];
 const ASSETS = [
     ...ASSETS_TO_UPDATE,
     'favicon.ico',

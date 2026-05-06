@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mareas-v13';
+const CACHE_NAME = 'mareas-v14';
 const ASSETS_TO_UPDATE = ['index.html', 'style.css', 'main.js'];
 const ASSETS = [
     ...ASSETS_TO_UPDATE,

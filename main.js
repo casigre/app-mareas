@@ -320,7 +320,7 @@ async function fetchMeteoGaliciaData(loc) {
             });
         }
     } catch (e) {
-        console.error("Error MeteoGalicia:", e);
+        console.warn("⚓ MeteoGalicia fallou ou está bloqueado. Activando sistema de respaldo local...", e.message);
         
         // Generar una predicción automática basada en Open-Meteo como respaldo
         const now = new Date();
@@ -497,6 +497,7 @@ function getOfficialTidesFullDay(dateStr) {
     
     // 2. Fallback: Calcular mareas a partir de datos de Open-Meteo (Nivel del mar)
     if (!dayData) {
+        console.log(`📊 Calculando mareas estimadas para ${dateStr}...`);
         const fallbackTides = calculateTidesFromOpenMeteo();
         if (fallbackTides && fallbackTides[dateStr]) {
             dayData = fallbackTides[dateStr];

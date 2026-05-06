@@ -78,10 +78,13 @@ function selectDate(iso) {
     selectedDate = iso;
     renderDateSelector();
     const loc = myLocations.find(l => l.id === currentLocId);
+    
+    // UI INSTANTÁNEA: Mostramos mareas estimadas al momento
+    updateUI();
+    
     if (loc) {
+        // En segundo plano buscamos los oficiales para refinar
         fetchMeteoGaliciaData(loc).then(() => updateUI());
-    } else {
-        updateUI();
     }
 }
 
@@ -206,8 +209,8 @@ async function refreshData() {
         const [mRes, wRes] = await Promise.all([fetch(marineUrl).then(r => r.json()), fetch(weatherUrl).then(r => r.json())]);
         if (mRes.hourly && wRes.hourly) {
             marineData = mRes; weatherData = wRes;
-            await fetchMeteoGaliciaData(loc);
-            updateUI();
+            updateUI(); // Mostrar datos inmediatamente
+            fetchMeteoGaliciaData(loc).then(() => updateUI()); // Refinar en segundo plano
         }
     } catch (error) { console.error("Error:", error); }
 }
@@ -239,13 +242,14 @@ async function fetchMeteoGaliciaData(loc) {
         (url) => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`
     ];
 
-    async function fetchWithRetry(url) {
-        let lastError;
-        for (const proxyFn of proxies) {
+    // Lanzamos todas las peticiones en paralelo y nos quedamos con la más rápida
+    const fetchPromises = proxies.map(proxyFn => {
+        return new Promise(async (resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Timeout')), 3500);
             try {
                 const pUrl = proxyFn(url);
                 const res = await fetch(pUrl);
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                if (!res.ok) throw new Error();
                 
                 let text;
                 if (pUrl.includes('allorigins.win')) {
@@ -255,18 +259,26 @@ async function fetchMeteoGaliciaData(loc) {
                     text = await res.text();
                 }
                 
-                if (!text || (!text.trim().startsWith('{') && !text.trim().startsWith('['))) {
-                    throw new Error("Respuesta no es JSON válido");
+                if (text && (text.trim().startsWith('{') || text.trim().startsWith('['))) {
+                    clearTimeout(timeout);
+                    resolve(JSON.parse(text));
+                } else {
+                    throw new Error();
                 }
-                
-                return JSON.parse(text);
             } catch (e) {
-                lastError = e;
-                console.warn(`Proxy falló para ${url}, probando siguiente...`, e.message);
+                clearTimeout(timeout);
+                reject(e);
             }
-        }
-        throw lastError;
+        });
+    });
+
+    try {
+        // Promise.any devuelve la primera que tenga éxito
+        return await Promise.any(fetchPromises);
+    } catch (e) {
+        throw new Error("Todos los proxies fallaron o tardaron demasiado");
     }
+}
 
     try {
         const [pRes, tRes] = await Promise.all([

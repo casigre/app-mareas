@@ -242,43 +242,42 @@ async function fetchMeteoGaliciaData(loc) {
         (url) => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`
     ];
 
-    // Lanzamos todas las peticiones en paralelo y nos quedamos con la más rápida
-    const fetchPromises = proxies.map(proxyFn => {
-        return new Promise(async (resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout')), 3500);
-            try {
-                const pUrl = proxyFn(url);
-                const res = await fetch(pUrl);
-                if (!res.ok) throw new Error();
-                
-                let text;
-                if (pUrl.includes('allorigins.win')) {
-                    const data = await res.json();
-                    text = data.contents;
-                } else {
-                    text = await res.text();
-                }
-                
-                if (text && (text.trim().startsWith('{') || text.trim().startsWith('['))) {
+    async function fetchWithRetry(url) {
+        const fetchPromises = proxies.map(proxyFn => {
+            return new Promise(async (resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Timeout')), 3500);
+                try {
+                    const pUrl = proxyFn(url);
+                    const res = await fetch(pUrl);
+                    if (!res.ok) throw new Error();
+                    
+                    let text;
+                    if (pUrl.includes('allorigins.win')) {
+                        const data = await res.json();
+                        text = data.contents;
+                    } else {
+                        text = await res.text();
+                    }
+                    
+                    if (text && (text.trim().startsWith('{') || text.trim().startsWith('['))) {
+                        clearTimeout(timeout);
+                        resolve(JSON.parse(text));
+                    } else {
+                        throw new Error();
+                    }
+                } catch (e) {
                     clearTimeout(timeout);
-                    resolve(JSON.parse(text));
-                } else {
-                    throw new Error();
+                    reject(e);
                 }
-            } catch (e) {
-                clearTimeout(timeout);
-                reject(e);
-            }
+            });
         });
-    });
 
-    try {
-        // Promise.any devuelve la primera que tenga éxito
-        return await Promise.any(fetchPromises);
-    } catch (e) {
-        throw new Error("Todos los proxies fallaron o tardaron demasiado");
+        try {
+            return await Promise.any(fetchPromises);
+        } catch (e) {
+            throw new Error("Todos los proxies fallaron");
+        }
     }
-}
 
     try {
         const [pRes, tRes] = await Promise.all([

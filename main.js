@@ -232,8 +232,9 @@ async function fetchMeteoGaliciaData(loc) {
 
     // Lista de proxies para mayor fiabilidad
     const proxies = [
-        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+        (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
     ];
 
     async function fetchWithRetry(url) {
@@ -242,10 +243,17 @@ async function fetchMeteoGaliciaData(loc) {
             try {
                 const res = await fetch(proxyFn(url));
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                return await res.json();
+                const text = await res.text();
+                
+                // Validar que la respuesta parezca JSON antes de parsear
+                if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+                    throw new Error("Respuesta no es JSON válido");
+                }
+                
+                return JSON.parse(text);
             } catch (e) {
                 lastError = e;
-                console.warn(`Proxy falló para ${url}, probando siguiente...`, e);
+                console.warn(`Proxy falló para ${url}, probando siguiente...`, e.message);
             }
         }
         throw lastError;

@@ -233,20 +233,28 @@ async function fetchMeteoGaliciaData(loc) {
     // Lista de proxies para mayor fiabilidad
     const proxies = [
         (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+        (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        (url) => `https://cors-proxy.htmldriven.com/?url=${encodeURIComponent(url)}`
     ];
 
     async function fetchWithRetry(url) {
         let lastError;
         for (const proxyFn of proxies) {
             try {
-                const res = await fetch(proxyFn(url));
+                const pUrl = proxyFn(url);
+                const res = await fetch(pUrl);
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                const text = await res.text();
                 
-                // Validar que la respuesta parezca JSON antes de parsear
-                if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+                let text;
+                if (pUrl.includes('allorigins.win')) {
+                    const data = await res.json();
+                    text = data.contents;
+                } else {
+                    text = await res.text();
+                }
+                
+                if (!text || (!text.trim().startsWith('{') && !text.trim().startsWith('['))) {
                     throw new Error("Respuesta no es JSON válido");
                 }
                 

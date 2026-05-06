@@ -321,8 +321,56 @@ async function fetchMeteoGaliciaData(loc) {
         }
     } catch (e) {
         console.error("Error MeteoGalicia:", e);
-        document.getElementById('prediction-content').innerHTML = '<p class="error">Non se puido cargar a predición oficial de MeteoGalicia (Erro de conexión).</p>';
+        
+        // Generar una predicción automática basada en Open-Meteo como respaldo
+        const now = new Date();
+        const isToday = selectedDate === now.toLocaleDateString('en-CA');
+        const targetHour = isToday ? now.getHours() : 12;
+        const targetTimeStr = selectedDate + `T${String(targetHour).padStart(2, '0')}:00`;
+        const idx = marineData.hourly.time.indexOf(targetTimeStr) || 0;
+        const wIdx = weatherData.hourly.time.indexOf(targetTimeStr) || 0;
+        
+        const wave = marineData.hourly.wave_height[idx] || 0;
+        const wind = weatherData.hourly.wind_speed_10m[wIdx] || 0;
+        const windDir = getWindDirection(weatherData.hourly.wind_direction_10m[wIdx]);
+
+        const content = `
+            <p style="color:var(--accent); font-size:0.7rem; margin-bottom:5px;">⚠️ PREDICIÓN ESTIMADA (FALLO CONEXIÓN OFICIAL)</p>
+            <p><strong>Oleaxe:</strong> Mar de fondo con ondas de ${wave.toFixed(1)}m.</p>
+            <p><strong>Vento:</strong> Sopre do ${windDir} con forza de ${wind.toFixed(0)} km/h.</p>
+            <p><strong>Visibilidade:</strong> Datos non dispoñibles.</p>
+            <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo <span style="opacity:0.3; font-size:0.6rem;">v17</span></p>
+        `;
+        document.getElementById('prediction-content').innerHTML = content;
     }
+}
+
+function calculateTidesFromOpenMeteo() {
+    if (!marineData || !marineData.minutely_15) return null;
+    const heights = marineData.minutely_15.sea_level_height_msl;
+    const times = marineData.minutely_15.time;
+    const tides = {};
+
+    // Detección de picos y valles (ventana de 2 horas = 8 puntos de 15min)
+    const windowSize = 6; 
+    for (let i = windowSize; i < heights.length - windowSize; i++) {
+        const curr = heights[i];
+        let isMax = true; let isMin = true;
+        for (let j = 1; j <= windowSize; j++) {
+            if (heights[i-j] >= curr || heights[i+j] >= curr) isMax = false;
+            if (heights[i-j] <= curr || heights[i+j] <= curr) isMin = false;
+        }
+        
+        if (isMax || isMin) {
+            const date = times[i].split('T')[0];
+            const time = times[i].split('T')[1].substring(0, 5);
+            if (!tides[date]) tides[date] = { high: [], low: [] };
+            if (isMax) tides[date].high.push(time);
+            else tides[date].low.push(time);
+            i += windowSize; // Saltar ventana para evitar duplicados en picos planos
+        }
+    }
+    return tides;
 }
 
 function updateUI() {
@@ -444,14 +492,22 @@ function getOfficialTidesFullDay(dateStr) {
     const loc = myLocations.find(l => l.id === currentLocId);
     if (!loc) return [];
     
-    // Buscamos primero en los datos dinámicos de MeteoGalicia
-    const dayData = dynamicTides[dateStr];
-    if (!dayData || !dayData[loc.port]) return [];
+    // 1. Intentar usar datos oficiales de MeteoGalicia (si se cargaron)
+    let dayData = dynamicTides[dateStr] ? dynamicTides[dateStr][loc.port] : null;
     
-    const portData = dayData[loc.port];
+    // 2. Fallback: Calcular mareas a partir de datos de Open-Meteo (Nivel del mar)
+    if (!dayData) {
+        const fallbackTides = calculateTidesFromOpenMeteo();
+        if (fallbackTides && fallbackTides[dateStr]) {
+            dayData = fallbackTides[dateStr];
+        }
+    }
+    
+    if (!dayData) return [];
+    
     const events = [];
-    portData.high.forEach(t => events.push({ type: 'Pleamar', time: combineDateAndTime(dateStr, t) }));
-    portData.low.forEach(t => events.push({ type: 'Bajamar', time: combineDateAndTime(dateStr, t) }));
+    (dayData.high || []).forEach(t => events.push({ type: 'Pleamar', time: combineDateAndTime(dateStr, t) }));
+    (dayData.low || []).forEach(t => events.push({ type: 'Bajamar', time: combineDateAndTime(dateStr, t) }));
     return events.sort((a,b) => a.time - b.time);
 }
 

@@ -21,7 +21,7 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=17">
 </head>
 
 <body>
@@ -151,7 +151,7 @@
 
             <!-- Footer / Credits -->
             <footer class="app-footer">
-                <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo <span style="opacity:0.3; font-size:0.6rem;">v16.1</span></p>
+                <p>Datos Oceanográficos: MeteoGalicia & Open-Meteo <span style="opacity:0.3; font-size:0.6rem;">v17</span></p>
             </footer>
     </main>
 
@@ -159,11 +159,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
-    <script src="main.js?v=16.1"> </script>
+    <script src="main.js?v=17"> </script>
     <script>
         if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw-v16.js')
+                navigator.serviceWorker.register('sw-v17.js')
                     .then(reg => {
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
